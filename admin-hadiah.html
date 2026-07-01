@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kelola Hadiah — Lucky Spin Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="page-admin">
+
+  <aside class="sidebar">
+    <div class="sidebar-brand"><span class="dot"></span> Lucky Spin</div>
+    <nav class="sidebar-nav">
+      <a href="admin-hadiah.html" class="active">🎁 Kelola Hadiah</a>
+      <a href="admin-winrate.html">🎯 Atur Win Rate</a>
+      <a href="admin-durasi.html">⏱ Durasi Spin</a>
+    </nav>
+    <div class="sidebar-footer">
+      <a class="view-spin" href="index.html">▶ Lihat Halaman Spin</a>
+      <button class="btn btn-danger btn-small" id="resetBtn">Reset ke Default</button>
+    </div>
+  </aside>
+
+  <main class="admin-main">
+    <div class="admin-header">
+      <span class="eyebrow">Pengaturan</span>
+      <h1>Kelola Hadiah</h1>
+      <p>Tambah, ubah, atau hapus hadiah yang muncul di reel. Ukuran setiap kotak hadiah di halaman spin akan otomatis mengecil bila jumlah hadiah bertambah — ini murni tampilan dan tidak berkaitan dengan win rate.</p>
+    </div>
+
+    <section class="card admin-section">
+      <div class="prize-row-header">
+        <span>Warna</span>
+        <span>Nama Hadiah</span>
+        <span>Win Rate</span>
+        <span></span>
+      </div>
+      <div id="prizeList"></div>
+      <div id="emptyState" class="empty-state" style="display:none;">
+        Belum ada hadiah. Tambahkan hadiah pertama di bawah ini.
+      </div>
+
+      <form class="add-prize-form" id="addForm">
+        <div class="field">
+          <label for="newColor">Warna</label>
+          <input type="color" id="newColor" value="#FFC93C">
+        </div>
+        <div class="field grow">
+          <label for="newName">Nama hadiah baru</label>
+          <input type="text" id="newName" placeholder="Contoh: Voucher 20rb" required>
+        </div>
+        <button type="submit" class="btn btn-primary">+ Tambah Hadiah</button>
+      </form>
+    </section>
+
+    <p class="spin-hint" style="color:var(--text-dim);">
+      Catatan: hadiah baru dimulai dengan win rate 0%. Atur peluangnya di halaman <a href="admin-winrate.html" style="color:var(--gold);">Atur Win Rate</a>.
+    </p>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+<script src="storage.js"></script>
+<script>
+(function(){
+  const prizeList = document.getElementById('prizeList');
+  const emptyState = document.getElementById('emptyState');
+  const addForm = document.getElementById('addForm');
+  const newName = document.getElementById('newName');
+  const newColor = document.getElementById('newColor');
+  const resetBtn = document.getElementById('resetBtn');
+  const toast = document.getElementById('toast');
+
+  let data = loadData();
+
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add('is-open');
+    setTimeout(()=> toast.classList.remove('is-open'), 2200);
+  }
+
+  function render(){
+    prizeList.innerHTML = '';
+    emptyState.style.display = data.prizes.length ? 'none' : 'block';
+
+    data.prizes.forEach(prize => {
+      const row = document.createElement('div');
+      row.className = 'prize-row';
+
+      const colorInput = document.createElement('input');
+      colorInput.type = 'color';
+      colorInput.value = prize.color;
+      colorInput.addEventListener('input', () => {
+        prize.color = colorInput.value;
+        saveData(data);
+      });
+
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.value = prize.name;
+      nameInput.addEventListener('change', () => {
+        prize.name = nameInput.value.trim() || prize.name;
+        nameInput.value = prize.name;
+        saveData(data);
+        showToast('Nama hadiah disimpan.');
+      });
+
+      const rateSpan = document.createElement('span');
+      rateSpan.textContent = (Number(prize.winRate)||0) + '%';
+      rateSpan.style.color = 'var(--text-dim)';
+      rateSpan.style.fontSize = '0.85rem';
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn btn-danger btn-small';
+      delBtn.textContent = '✕';
+      delBtn.title = 'Hapus hadiah';
+      delBtn.addEventListener('click', () => {
+        if(confirm(`Hapus hadiah "${prize.name}"?`)){
+          data.prizes = data.prizes.filter(p => p.id !== prize.id);
+          saveData(data);
+          render();
+          showToast('Hadiah dihapus.');
+        }
+      });
+
+      row.appendChild(colorInput);
+      row.appendChild(nameInput);
+      row.appendChild(rateSpan);
+      row.appendChild(delBtn);
+      prizeList.appendChild(row);
+    });
+  }
+
+  addForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = newName.value.trim();
+    if(!name) return;
+    data.prizes.push({ id: uid(), name, color: newColor.value, winRate: 0 });
+    saveData(data);
+    newName.value = '';
+    newColor.value = '#FFC93C';
+    render();
+    showToast('Hadiah ditambahkan. Jangan lupa atur win rate-nya.');
+  });
+
+  resetBtn.addEventListener('click', () => {
+    if(confirm('Reset semua data (hadiah, win rate, durasi) ke pengaturan default?')){
+      data = resetData();
+      render();
+      showToast('Data direset ke default.');
+    }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

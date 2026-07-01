@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lucky Spin — Putar &amp; Menangkan Hadiah</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="page-spin">
+
+  <div class="spin-topbar">
+    <a class="admin-link" href="admin-hadiah.html">⚙ Panel Admin</a>
+  </div>
+
+  <header class="spin-hero">
+    <span class="eyebrow">Tiket Keberuntungan</span>
+    <h1>LUCKY SPIN</h1>
+    <p>Tekan tombol putar dan lihat ke mana panah berhenti. Satu putaran, satu kejutan.</p>
+  </header>
+
+  <div class="spin-stage">
+    <div class="pointer" aria-hidden="true"></div>
+    <div class="reel-viewport" id="reelViewport">
+      <div class="reel-center-line" aria-hidden="true"></div>
+      <div class="reel-track" id="reelTrack"></div>
+    </div>
+
+    <div class="spin-controls">
+      <button class="btn btn-primary" id="spinBtn">🎯 PUTAR SEKARANG</button>
+      <span class="spin-hint" id="spinHint">Peluang menang setiap hadiah diatur oleh admin.</span>
+    </div>
+  </div>
+
+  <footer class="spin-footer">
+    Lucky Spin — dibuat untuk demo undian hadiah.
+  </footer>
+
+  <!-- Result modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="result-ticket">
+      <div class="result-stamp">🎉 Selamat!</div>
+      <div class="result-swatch" id="resultSwatch">🎁</div>
+      <div class="result-name" id="resultName">Nama Hadiah</div>
+      <button class="btn btn-primary" id="closeModalBtn">Oke, Lanjut!</button>
+    </div>
+  </div>
+
+<script src="storage.js"></script>
+<script>
+(function(){
+  const reelViewport = document.getElementById('reelViewport');
+  const reelTrack = document.getElementById('reelTrack');
+  const spinBtn = document.getElementById('spinBtn');
+  const spinHint = document.getElementById('spinHint');
+  const modalOverlay = document.getElementById('modalOverlay');
+  const resultName = document.getElementById('resultName');
+  const resultSwatch = document.getElementById('resultSwatch');
+  const closeModalBtn = document.getElementById('closeModalBtn');
+
+  const LAND_BLOCK = 20; // blok pengulangan tempat hadiah pemenang diletakkan
+  const EXTRA_BLOCKS = 3; // sisa blok setelah blok kemenangan (buffer visual)
+
+  let spinning = false;
+
+  function computeBoxWidth(count){
+    // Semakin banyak hadiah, semakin kecil ruang per hadiah.
+    const raw = 900 / Math.max(count, 1);
+    return Math.max(60, Math.min(150, raw));
+  }
+
+  function renderIdleReel(){
+    const data = loadData();
+    reelTrack.style.transition = 'none';
+    reelTrack.style.transform = 'translateX(0)';
+    reelTrack.innerHTML = '';
+    const boxWidth = computeBoxWidth(data.prizes.length);
+    const viewportWidth = reelViewport.clientWidth || 800;
+    const boxesNeeded = Math.ceil(viewportWidth / boxWidth) + 2;
+    for(let i=0;i<boxesNeeded;i++){
+      const p = data.prizes[i % data.prizes.length];
+      reelTrack.appendChild(makeBox(p, boxWidth));
+    }
+    if(!data.prizes.length){
+      spinBtn.disabled = true;
+      spinHint.textContent = 'Belum ada hadiah yang diatur. Silakan hubungi admin.';
+    } else {
+      spinBtn.disabled = false;
+      spinHint.textContent = 'Peluang menang setiap hadiah diatur oleh admin.';
+    }
+  }
+
+  function makeBox(prize, boxWidth){
+    const box = document.createElement('div');
+    box.className = 'reel-box';
+    box.style.width = boxWidth + 'px';
+    box.style.setProperty('--prize-color', prize.color);
+    box.innerHTML = `<span class="reel-emoji">🎁</span><span class="reel-name">${escapeHtml(prize.name)}</span>`;
+    return box;
+  }
+
+  function startSpin(){
+    if(spinning) return;
+    const data = loadData();
+    if(!data.prizes.length){ renderIdleReel(); return; }
+
+    spinning = true;
+    spinBtn.disabled = true;
+    spinHint.textContent = 'Sedang berputar...';
+
+    const winner = weightedPick(data.prizes);
+    const winnerIndex = data.prizes.findIndex(p => p.id === winner.id);
+    const boxWidth = computeBoxWidth(data.prizes.length);
+    const count = data.prizes.length;
+
+    // Bangun ulang strip dari awal setiap kali spin, supaya panjangnya selalu cukup.
+    reelTrack.style.transition = 'none';
+    reelTrack.style.transform = 'translateX(0)';
+    reelTrack.innerHTML = '';
+    const totalBlocks = LAND_BLOCK + EXTRA_BLOCKS;
+    for(let b=0;b<totalBlocks;b++){
+      for(let i=0;i<count;i++){
+        reelTrack.appendChild(makeBox(data.prizes[i], boxWidth));
+      }
+    }
+
+    // paksa reflow supaya transition:none benar-benar diterapkan dulu
+    void reelTrack.offsetWidth;
+
+    const viewportWidth = reelViewport.clientWidth;
+    const targetGlobalIndex = LAND_BLOCK * count + winnerIndex;
+    const boxCenter = targetGlobalIndex * boxWidth + boxWidth / 2;
+    const jitterRange = boxWidth * 0.22;
+    const jitter = (Math.random() * 2 - 1) * jitterRange;
+    const offset = boxCenter - viewportWidth / 2 + jitter;
+
+    const duration = Math.max(2, Number(data.duration) || 6);
+    reelTrack.style.transition = `transform ${duration}s cubic-bezier(0.1,0.66,0.15,1)`;
+
+    requestAnimationFrame(() => {
+      reelTrack.style.transform = `translateX(${-offset}px)`;
+    });
+
+    setTimeout(() => {
+      const winnerBox = reelTrack.children[targetGlobalIndex];
+      if(winnerBox) winnerBox.classList.add('reel-box--winner');
+      spinning = false;
+      spinBtn.disabled = false;
+      spinHint.textContent = 'Peluang menang setiap hadiah diatur oleh admin.';
+      showResult(winner);
+    }, duration * 1000 + 150);
+  }
+
+  function showResult(prize){
+    resultName.textContent = prize.name;
+    resultSwatch.style.background = prize.color;
+    modalOverlay.classList.add('is-open');
+  }
+
+  closeModalBtn.addEventListener('click', () => {
+    modalOverlay.classList.remove('is-open');
+  });
+  modalOverlay.addEventListener('click', (e) => {
+    if(e.target === modalOverlay) modalOverlay.classList.remove('is-open');
+  });
+
+  spinBtn.addEventListener('click', startSpin);
+  window.addEventListener('resize', () => { if(!spinning) renderIdleReel(); });
+
+  renderIdleReel();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Durasi Spin — Lucky Spin Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="page-admin">
+
+  <aside class="sidebar">
+    <div class="sidebar-brand"><span class="dot"></span> Lucky Spin</div>
+    <nav class="sidebar-nav">
+      <a href="admin-hadiah.html">🎁 Kelola Hadiah</a>
+      <a href="admin-winrate.html">🎯 Atur Win Rate</a>
+      <a href="admin-durasi.html" class="active">⏱ Durasi Spin</a>
+    </nav>
+    <div class="sidebar-footer">
+      <a class="view-spin" href="index.html">▶ Lihat Halaman Spin</a>
+      <button class="btn btn-danger btn-small" id="resetBtn">Reset ke Default</button>
+    </div>
+  </aside>
+
+  <main class="admin-main">
+    <div class="admin-header">
+      <span class="eyebrow">Pengaturan</span>
+      <h1>Durasi Spin</h1>
+      <p>Atur berapa lama reel berputar sebelum berhenti di hadiah pemenang. Durasi lebih lama memberi kesan menegangkan, durasi lebih pendek terasa lebih cepat.</p>
+    </div>
+
+    <section class="card admin-section">
+      <label for="durationSlider">Durasi putaran</label>
+      <div class="duration-display"><span id="durationValue">6</span> detik</div>
+      <input type="range" id="durationSlider" class="duration-slider" min="2" max="15" step="0.5" value="6">
+
+      <div class="duration-presets">
+        <button class="btn btn-ghost btn-small" data-preset="3">Cepat (3s)</button>
+        <button class="btn btn-ghost btn-small" data-preset="6">Normal (6s)</button>
+        <button class="btn btn-ghost btn-small" data-preset="10">Dramatis (10s)</button>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-primary" id="saveBtn">Simpan Durasi</button>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+<script src="storage.js"></script>
+<script>
+(function(){
+  const durationSlider = document.getElementById('durationSlider');
+  const durationValue = document.getElementById('durationValue');
+  const saveBtn = document.getElementById('saveBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const toast = document.getElementById('toast');
+  const presetBtns = document.querySelectorAll('[data-preset]');
+
+  let data = loadData();
+  durationSlider.value = data.duration;
+  durationValue.textContent = data.duration;
+
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add('is-open');
+    setTimeout(()=> toast.classList.remove('is-open'), 2200);
+  }
+
+  durationSlider.addEventListener('input', () => {
+    durationValue.textContent = durationSlider.value;
+  });
+
+  presetBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      durationSlider.value = btn.dataset.preset;
+      durationValue.textContent = btn.dataset.preset;
+    });
+  });
+
+  saveBtn.addEventListener('click', () => {
+    data.duration = Number(durationSlider.value);
+    saveData(data);
+    showToast('Durasi spin berhasil disimpan.');
+  });
+
+  resetBtn.addEventListener('click', () => {
+    if(confirm('Reset semua data (hadiah, win rate, durasi) ke pengaturan default?')){
+      data = resetData();
+      durationSlider.value = data.duration;
+      durationValue.textContent = data.duration;
+      showToast('Data direset ke default.');
+    }
+  });
+})();
+</script>
+</body>
+</html>
